@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -53,19 +54,55 @@ func ensureTwoDigits(s string) string {
 	return s
 }
 
-func askAboutReserveDate() (yearMonth, date string) {
-	fmt.Println("予約する日付を入力してください。（半角数字）")
+func isValidDate(year, month, day int) bool {
+	t := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local)
+	return t.Year() == year && t.Month() == time.Month(month) && t.Day() == day
+}
 
-	year := inputWithPrompt("年: ")
-	month := inputWithPrompt("月: ")
-	date = inputWithPrompt("日: ")
+func askAboutReserveDate() (yearMonthStr, dateStr string) {
+	fmt.Println("予約する日付を入力してください。（半角数字のみ）")
 
-	month = ensureTwoDigits(month)
-	date = ensureTwoDigits(date)
+	yearStr := inputWithPrompt("年: ")
+	monthStr := inputWithPrompt("月: ")
+	dateStr = inputWithPrompt("日: ")
 
-	yearMonth = year + month
+	yearInt, _ := strconv.Atoi(yearStr)
+	monthInt, _ := strconv.Atoi(monthStr)
+	dateInt, _ := strconv.Atoi(dateStr)
 
-	return yearMonth, date
+	if !isValidDate(yearInt, monthInt, dateInt) {
+		fmt.Println("無効な日付です。正しい日付を入力してください。")
+		return
+	}
+
+	// 入力した日付が過去の日付でないかチェック
+	inputDate := time.Date(yearInt, time.Month(monthInt), dateInt, 0, 0, 0, 0, time.Local)
+
+	// 時・分・秒を0にして日付を比較
+	now := time.Now()
+	currentDateRounded := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	isTodayOrLater := inputDate.Compare(currentDateRounded)
+
+	if isTodayOrLater == -1 {
+		fmt.Println("過去の日付を入力することはできません。")
+	}
+
+	monthStr = ensureTwoDigits(monthStr)
+	dateStr = ensureTwoDigits(dateStr)
+
+	yearMonthStr = yearStr + monthStr
+
+	return yearMonthStr, dateStr
+}
+
+func init() {
+	// JSTタイムゾーンに設定
+	loc, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		panic(err)
+	}
+	time.Local = loc
 }
 
 func main() {
