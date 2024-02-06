@@ -88,6 +88,15 @@ func askAboutReserveDate() (yearMonthStr, dateStr string) {
 		fmt.Println("過去の日付を入力することはできません。")
 	}
 
+	// 3ヶ月後までが有効な予約日
+	afterThreeMonth := currentDateRounded.AddDate(0, 3, -1)
+
+	isWithInThreeMonth := inputDate.Compare(afterThreeMonth)
+
+	if isWithInThreeMonth == 1 {
+		fmt.Println("3ヶ月より先の日付を入力することはできません。")
+	}
+
 	monthStr = ensureTwoDigits(monthStr)
 	dateStr = ensureTwoDigits(dateStr)
 
