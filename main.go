@@ -11,6 +11,17 @@ import (
 	"github.com/joho/godotenv"
 )
 
+type TimeSchedule struct {
+	Id          string
+	RangeToText string
+	CanSelect   bool
+}
+
+type ScheduleCheck struct {
+	Id      string
+	Checked bool
+}
+
 func inputWithPrompt(promptText string) string {
 	var input string
 	fmt.Print(promptText)
@@ -94,86 +105,104 @@ func main() {
 		log.Fatalf("Failed to complete login process: %v", err)
 	}
 
-	// 枠が空いているかを確認
-	var isExist1 bool
-	var isExist2 bool
-	var isExist3 bool
-	var isExist4 bool
-	if err := chromedp.Run(ctx,
-		chromedp.Sleep(1*time.Second),
-		chromedp.Evaluate(`!!document.querySelector('tr:nth-child(3) input[value="0230"]')`, &isExist1),
-	); err != nil {
-		log.Println("Failed to check if the checkbox is exist")
+	// 予約したい枠を定義
+	schedules := []TimeSchedule{
+		{
+			Id:          "0230",
+			RangeToText: "20:30 ~ 21:00",
+			CanSelect:   false,
+		},
+		{
+			Id:          "0231",
+			RangeToText: "21:00 ~ 21:30",
+			CanSelect:   false,
+		},
+		{
+			Id:          "0232",
+			RangeToText: "21:30 ~ 22:00",
+			CanSelect:   false,
+		},
+		{
+			Id:          "0233",
+			RangeToText: "22:00 ~ 22:30",
+			CanSelect:   false,
+		},
 	}
 
-	if err := chromedp.Run(ctx,
-		chromedp.Sleep(1*time.Second),
-		chromedp.Evaluate(`!!document.querySelector('tr:nth-child(3) input[value="0231"]')`, &isExist2),
-	); err != nil {
-		log.Println("Failed to check if the checkbox is exist")
+	reserveFail := false
+
+	// 予約可能かチェック
+	for _, schedule := range schedules {
+		if err := chromedp.Run(ctx,
+			chromedp.Sleep(1*time.Second),
+			chromedp.Evaluate(fmt.Sprintf(`!!document.querySelector('tr:nth-child(3) input[value="%s"]')`, schedule.Id), &schedule.CanSelect),
+		); err != nil {
+			log.Println("Failed to check if the checkbox is exist")
+		}
+		if !schedule.CanSelect {
+			errorMessage := fmt.Sprintf("【エラー：他のユーザーにより予約済み】%s枠", schedule.RangeToText)
+			fmt.Println(errorMessage)
+			reserveFail = true
+		}
 	}
 
-	if err := chromedp.Run(ctx,
-		chromedp.Sleep(1*time.Second),
-		chromedp.Evaluate(`!!document.querySelector('tr:nth-child(3) input[value="0232"]')`, &isExist3),
-	); err != nil {
-		log.Println("Failed to check if the checkbox is exist")
-	}
-
-	if err := chromedp.Run(ctx,
-		chromedp.Sleep(1*time.Second),
-		chromedp.Evaluate(`!!document.querySelector('tr:nth-child(3) input[value="0233"]')`, &isExist4),
-	); err != nil {
-		log.Println("Failed to check if the checkbox is exist")
-	}
-
-	if isExist1 && isExist2 && isExist3 && isExist4 {
-		fmt.Println("The checkbox is all exist.")
-	} else {
-		if !isExist1 {
-			fmt.Println("【エラー：他のユーザーにより予約済み】20:30 ~ 21:00枠")
-		}
-		if !isExist2 {
-			fmt.Println("【エラー：他のユーザーにより予約済み】21:00 ~ 21:30枠")
-		}
-		if !isExist3 {
-			fmt.Println("【エラー：他のユーザーにより予約済み】21:30 ~ 22:00枠")
-		}
-		if !isExist4 {
-			fmt.Println("【エラー：他のユーザーにより予約済み】22:00 ~ 22:30枠")
-		}
-
+	// 予約済みの枠がある場合はエラーを出力して終了
+	if reserveFail {
 		log.Fatal("【エラー：他のユーザーにより予約済み】枠が埋まっているため予約できません。")
 	}
 
-	// 時間帯を選択
-	if err := chromedp.Run(ctx,
-		chromedp.Click(`tr:nth-child(3) input[value="0230"]`, chromedp.ByQuery),
-		chromedp.Click(`tr:nth-child(3) input[value="0231"]`, chromedp.ByQuery),
-		chromedp.Click(`tr:nth-child(3) input[value="0232"]`, chromedp.ByQuery),
-		chromedp.Click(`tr:nth-child(3) input[value="0233"]`, chromedp.ByQuery),
-	); err != nil {
-		log.Fatal("Failed to check", err)
+	// 予約IDだけを配列に格納
+	reserveIds := make([]string, len(schedules))
+	for i, schedule := range schedules {
+		reserveIds[i] = schedule.Id
 	}
 
-	// チェックが入っているか確認
-	var isChecked1 bool
-	var isChecked2 bool
-	var isChecked3 bool
-	var isChecked4 bool
-	if err := chromedp.Run(ctx,
-		chromedp.Evaluate(`document.querySelector('tr:nth-child(3) input[value="0230"]').checked`, &isChecked1),
-		chromedp.Evaluate(`document.querySelector('tr:nth-child(3) input[value="0231"]').checked`, &isChecked2),
-		chromedp.Evaluate(`document.querySelector('tr:nth-child(3) input[value="0232"]').checked`, &isChecked3),
-		chromedp.Evaluate(`document.querySelector('tr:nth-child(3) input[value="0233"]').checked`, &isChecked4),
-	); err != nil {
-		log.Fatal("Failed to check", err)
+	// 時間帯を選択してチェックボックスにチェックを入れる
+	for _, reserveId := range reserveIds {
+		if err := chromedp.Run(ctx,
+			chromedp.Click(fmt.Sprintf(`tr:nth-child(3) input[value="%s"]`, reserveId), chromedp.ByQuery),
+		); err != nil {
+			log.Fatal("Failed to check", err)
+		}
 	}
 
-	if isChecked1 && isChecked2 && isChecked3 && isChecked4 {
-		fmt.Println("The input is all checked.")
-	} else {
-		log.Fatal("The input is not checked.")
+	// チェックしたか確認
+	scheduleChecks := []ScheduleCheck{
+		{
+			Id:      "0230",
+			Checked: false,
+		},
+		{
+			Id:      "0231",
+			Checked: false,
+		},
+		{
+			Id:      "0232",
+			Checked: false,
+		},
+		{
+			Id:      "0233",
+			Checked: false,
+		},
+	}
+
+	checkFail := false
+
+	// チェックできているか確認
+	for _, scheduleCheck := range scheduleChecks {
+		if err := chromedp.Run(ctx,
+			chromedp.Evaluate(fmt.Sprintf(`document.querySelector('tr:nth-child(3) input[value="%s"]').checked`, scheduleCheck.Id), &scheduleCheck.Checked),
+		); err != nil {
+			log.Println("Failed to check if the checkbox is exist")
+		}
+		if !scheduleCheck.Checked {
+			checkFail = true
+		}
+	}
+
+	// チェックに失敗した場合はエラーを出力して終了
+	if checkFail {
+		log.Fatal("【エラー：チェックに失敗】")
 	}
 
 	// 予約ボタンをクリック
