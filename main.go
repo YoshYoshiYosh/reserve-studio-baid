@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"time"
-	"unicode"
 
 	"github.com/chromedp/chromedp"
 	"github.com/joho/godotenv"
@@ -23,13 +22,12 @@ type ScheduleCheck struct {
 	Checked bool
 }
 
-func isDigitString(s string) bool {
+func isHalfWidthDigitString(s string) bool {
 	for _, r := range s {
-		if !unicode.IsDigit(r) {
+		if r < '0' || r > '9' {
 			return false
 		}
 	}
-
 	return true
 }
 
@@ -39,7 +37,7 @@ func inputWithPrompt(promptText string) string {
 	for {
 		fmt.Print(promptText)
 		fmt.Scan(&input)
-		if input != "" && isDigitString(input) {
+		if input != "" && isHalfWidthDigitString(input) {
 			break
 		} else {
 			fmt.Println("半角数字で入力してください。")
